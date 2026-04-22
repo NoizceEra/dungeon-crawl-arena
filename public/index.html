@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dungeon Crawl Arena</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a1a; color: #eee; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+#app { width: 960px; margin: 0 auto; }
+
+/* MENU SCREEN */
+#menu-screen { text-align: center; padding-top: 80px; }
+#menu-screen h1 { font-size: 52px; color: #f39c12; text-shadow: 0 0 30px #f39c12aa; letter-spacing: 2px; margin-bottom: 10px; }
+#menu-screen p { color: #888; margin-bottom: 40px; font-size: 14px; }
+#name-input, #room-code-input { background: #1a1a2e; border: 2px solid #333; color: #fff; padding: 10px 16px; font-size: 18px; width: 200px; border-radius: 6px; margin-bottom: 12px; outline: none; }
+#name-input:focus, #room-code-input:focus { border-color: #f39c12; }
+#join-code-row { display: flex; justify-content: center; gap: 10px; margin-bottom: 30px; }
+#join-code-row input { text-transform: uppercase; letter-spacing: 4px; text-align: center; width: 120px; }
+.btn { background: linear-gradient(135deg, #e67e22, #d35400); color: #fff; border: none; padding: 12px 32px; font-size: 16px; border-radius: 6px; cursor: pointer; margin: 6px; font-weight: bold; transition: transform 0.1s; }
+.btn:hover { transform: scale(1.05); }
+.btn:active { transform: scale(0.98); }
+.btn-secondary { background: #2c3e50; }
+.btn-success { background: linear-gradient(135deg, #27ae60, #1e8449); }
+.btn-danger { background: linear-gradient(135deg, #c0392b, #922b21); }
+
+/* LOBBY SCREEN */
+#lobby-screen { display: none; padding: 20px; }
+#lobby-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+#room-code-display { font-size: 36px; letter-spacing: 8px; color: #f39c12; font-weight: bold; }
+#player-list { background: #1a1a2e; border-radius: 8px; padding: 16px; margin-bottom: 16px; min-height: 120px; }
+.player-row { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 4px; margin-bottom: 6px; background: #16213e; }
+.player-row .name { flex: 1; font-size: 16px; }
+.player-row .cls { font-size: 12px; padding: 2px 8px; border-radius: 4px; color: #fff; font-weight: bold; }
+.player-row .ready-badge { font-size: 12px; padding: 2px 8px; border-radius: 4px; }
+.ready-yes { background: #27ae60; color: #fff; }
+.ready-no { background: #555; color: #888; }
+.host-crown { font-size: 14px; }
+.class-select { display: flex; gap: 10px; margin: 16px 0; }
+.class-btn { padding: 10px 20px; border-radius: 6px; border: 2px solid #333; background: #1a1a2e; color: #888; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+.class-btn.selected { color: #fff; transform: scale(1.05); }
+.class-btn.warrior.selected { border-color: #E74C3C; background: #E74C3C33; }
+.class-btn.mage.selected { border-color: #9B59B6; background: #9B59B662; }
+.class-btn.archer.selected { border-color: #27AE60; background: #27AE6033; }
+#lobby-actions { display: flex; gap: 10px; justify-content: center; }
+
+/* GAME SCREEN */
+#game-screen { display: none; position: relative; }
+#game-canvas { display: block; border: 2px solid #333; border-radius: 4px; }
+#top-hud { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; }
+#wave-display { background: rgba(0,0,0,0.7); padding: 6px 16px; border-radius: 4px; font-size: 16px; }
+#player-count-display { background: rgba(0,0,0,0.7); padding: 6px 16px; border-radius: 4px; font-size: 16px; }
+#bottom-hud { position: absolute; bottom: 10px; left: 10px; right: 10px; display: flex; gap: 10px; pointer-events: none; }
+.hud-bar { background: rgba(0,0,0,0.8); padding: 8px 12px; border-radius: 4px; }
+.hud-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+.hud-bar-fill { height: 12px; border-radius: 3px; transition: width 0.3s; }
+#hp-bar-fill { background: linear-gradient(90deg, #c0392b, #e74c3c); }
+#xp-bar-fill { background: linear-gradient(90deg, #d4ac0d, #f1c40f); }
+.hud-value { font-size: 13px; margin-top: 2px; }
+#ability-hud { position: absolute; bottom: 10px; right: 10px; pointer-events: none; }
+#ability-btn { background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 4px; font-size: 13px; color: #aaa; border: 2px solid #444; }
+#ability-btn.ready { border-color: #f39c12; color: #f39c12; }
+#kill-feed { position: absolute; top: 10px; right: 160px; pointer-events: none; font-size: 12px; }
+.kill-entry { background: rgba(0,0,0,0.7); padding: 3px 8px; border-radius: 3px; margin-bottom: 3px; }
+
+/* CHAT */
+#chat-box { position: absolute; bottom: 60px; left: 10px; width: 280px; pointer-events: none; }
+#chat-log { background: rgba(0,0,0,0.6); border-radius: 4px; padding: 6px; max-height: 100px; overflow-y: auto; font-size: 12px; }
+.chat-msg { margin-bottom: 3px; }
+.chat-msg .cname { font-weight: bold; color: #f39c12; }
+#chat-input-row { display: flex; gap: 4px; margin-top: 4px; pointer-events: all; }
+#chat-input { flex: 1; background: rgba(0,0,0,0.8); border: 1px solid #333; color: #fff; padding: 4px 8px; font-size: 12px; border-radius: 3px; }
+
+/* RESULTS SCREEN */
+#results-screen { display: none; text-align: center; padding-top: 100px; }
+#results-screen h2 { font-size: 48px; margin-bottom: 20px; }
+#results-screen.victory h2 { color: #27ae60; }
+#results-screen.defeat h2 { color: #c0392b; }
+#results-stats { font-size: 18px; line-height: 2; margin-bottom: 30px; color: #aaa; }
+
+/* CONTROLS HINT */
+#controls-hint { position: absolute; bottom: 60px; right: 10px; font-size: 11px; color: #555; text-align: right; pointer-events: none; }
+
+/* ERROR TOAST */
+#error-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #c0392b; color: #fff; padding: 10px 24px; border-radius: 6px; display: none; z-index: 100; }
+
+/* CLASS COLORS */
+.warrior-color { color: #E74C3C; }
+.mage-color { color: #9B59B6; }
+.archer-color { color: #27AE60; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- MENU -->
+  <div id="menu-screen">
+    <h1>DUNGEON CRAWL ARENA</h1>
+    <p>A MapleStory-lite multiplayer dungeon crawler</p>
+    <input id="name-input" placeholder="Your name..." maxlength="16" /><br>
+    <button class="btn" onclick="createRoom()">Create Room</button>
+    <br>
+    <div id="join-code-row">
+      <input id="room-code-input" placeholder="CODE" maxlength="4" />
+      <button class="btn btn-secondary" onclick="joinRoom()">Join</button>
+    </div>
+  </div>
+
+  <!-- LOBBY -->
+  <div id="lobby-screen">
+    <div id="lobby-header">
+      <div>
+        <div style="font-size:12px;color:#888;">ROOM CODE</div>
+        <div id="room-code-display">----</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:12px;color:#888;">PLAYERS</div>
+        <div id="lobby-player-count">0/4</div>
+      </div>
+    </div>
+    <div id="player-list"></div>
+    <div style="font-size:14px;color:#888;margin-bottom:8px;">SELECT CLASS</div>
+    <div class="class-select">
+      <button class="class-btn warrior" onclick="selectClass('warrior')">⚔️ Warrior</button>
+      <button class="class-btn mage" onclick="selectClass('mage')">🔮 Mage</button>
+      <button class="class-btn archer" onclick="selectClass('archer')">🏹 Archer</button>
+    </div>
+    <div id="lobby-actions">
+      <button id="ready-btn" class="btn btn-success" onclick="toggleReady()">Ready</button>
+      <button id="start-btn" class="btn" onclick="startDungeon()" style="display:none">Start Dungeon</button>
+    </div>
+  </div>
+
+  <!-- GAME -->
+  <div id="game-screen">
+    <canvas id="game-canvas" width="960" height="540"></canvas>
+    <div id="top-hud">
+      <div id="wave-display">Wave 1 / 5</div>
+      <div id="player-count-display">👥 2 players</div>
+      <div id="kill-feed"></div>
+    </div>
+    <div id="bottom-hud">
+      <div class="hud-bar" style="min-width:200px">
+        <div class="hud-label">HP</div>
+        <div id="hp-bar-fill" class="hud-bar-fill" style="width:100%"></div>
+        <div class="hud-value" id="hp-value">120 / 120</div>
+      </div>
+      <div class="hud-bar" style="min-width:200px">
+        <div class="hud-label">XP</div>
+        <div id="xp-bar-fill" class="hud-bar-fill" style="width:0%"></div>
+        <div class="hud-value" id="xp-value">0 / 50</div>
+      </div>
+      <div class="hud-bar">
+        <div class="hud-label">WEAPON</div>
+        <div id="weapon-display" style="font-size:13px;margin-top:4px">Iron Sword</div>
+      </div>
+    </div>
+    <div id="ability-hud">
+      <div id="ability-btn">K - ----</div>
+    </div>
+    <div id="chat-box">
+      <div id="chat-log"></div>
+      <div id="chat-input-row">
+        <input id="chat-input" placeholder="Press Enter to chat..." maxlength="100" onkeydown="if(event.key==='Enter')sendChat()" />
+      </div>
+    </div>
+    <div id="controls-hint">
+      WASD/Arrows: Move &amp; Jump &nbsp;|&nbsp; J: Attack &nbsp;|&nbsp; K: Ability
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results-screen">
+    <h2 id="results-title">VICTORY</h2>
+    <div id="results-stats"></div>
+    <button class="btn btn-success" onclick="playAgain()">Play Again</button>
+    <button class="btn btn-secondary" onclick="exitGame()">Exit</button>
+  </div>
+
+</div>
+
+<div id="error-toast"></div>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+// ─── State ─────────────────────────────────────────────────────────────────────
+const CANVAS_W = 960, CANVAS_H = 540, GROUND_Y = 480;
+const PLATFORM_Y = [320, 400], PLAT_LEFT = 200, PLAT_RIGHT = 760;
+
+let socket = null;
+let myPlayerId = null;
+let mySocketId = null;
+let isHost = false;
+let roomCode = '';
+let gameState = 'menu'; // menu | lobby | game | results
+let currentClass = 'warrior';
+let localPlayers = {};
+let localEnemies = {};
+let localProjectiles = [];
+let localLoot = [];
+let inputState = { left: false, right: false, jump: false, attack: false, ability: false };
+let keys = {};
+let lastAttackKey = false;
+let lastAbilityKey = false;
+let killFeed = [];
+let resultsWon = false;
+
+// ─── DOM Refs ──────────────────────────────────────────────────────────────────
+const menuScreen = document.getElementById('menu-screen');
+const lobbyScreen = document.getElementById('lobby-screen');
+const gameScreen  = document.getElementById('game-screen');
+const resultsScreen = document.getElementById('results-screen');
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+
+// ─── Connection ─────────────────────────────────────────────────────────────────
+function connectSocket() {
+  const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? `http://${window.location.host}`
+    : window.location.origin;
+  socket = io(serverUrl);
+
+  socket.on('connect', () => { mySocketId = socket.id; });
+
+  socket.on('room_joined', (data) => {
+    roomCode = data.roomCode;
+    isHost = data.isHost;
+    myPlayerId = data.player.id;
+    showLobby(data.players);
+  });
+
+  socket.on('room_update', (data) => {
+    if (gameState === 'lobby') renderLobby(data.players);
+    if (gameState === 'game') {
+      localPlayers = {};
+      for (const p of data.players) localPlayers[p.id] = p;
+      localEnemies = {};
+      for (const e of (data.enemies || [])) localEnemies[e.id] = e;
+      localProjectiles = data.projectiles || [];
+      localLoot = data.loot || [];
+      updateHUD(data.wave, Object.keys(localPlayers).length);
+    }
+  });
+
+  socket.on('wave_start', (data) => {
+    if (gameState !== 'game') return;
+    localEnemies = {};
+    for (const e of data.enemies) localEnemies[e.id] = e;
+    document.getElementById('wave-display').textContent = `Wave ${data.wave} / 5`;
+  });
+
+  socket.on('wave_end', (data) => {
+    addKillFeed(`Wave ${data.wave} cleared!`);
+  });
+
+  socket.on('enemy_hit', (data) => {
+    if (localEnemies[data.enemyId]) localEnemies[data.enemyId].hp = data.hp;
+  });
+
+  socket.on('enemy_death', (data) => {
+    delete localEnemies[data.enemyId];
+    addKillFeed(`Enemy defeated!`);
+  });
+
+  socket.on('player_hit', (data) => {
+    if (localPlayers[data.playerId]) {
+      localPlayers[data.playerId].hp = data.hp;
+      localPlayers[data.playerId].maxHp = data.maxHp;
+    }
+    updateBottomHUD();
+  });
+
+  socket.on('player_death', (data) => {
+    if (localPlayers[data.playerId]) localPlayers[data.playerId].dead = true;
+  });
+
+  socket.on('player_respawn', (data) => {
+    if (localPlayers[data.playerId]) {
+      localPlayers[data.playerId].x = data.x;
+      localPlayers[data.playerId].y = data.y;
+      localPlayers[data.playerId].hp = data.hp;
+      localPlayers[data.playerId].dead = false;
+    }
+  });
+
+  socket.on('xp_gain', (data) => {
+    if (localPlayers[data.playerId]) {
+      localPlayers[data.playerId].xp = data.xp;
+      localPlayers[data.playerId].level = data.level;
+      localPlayers[data.playerId].maxHp = data.maxHp;
+    }
+    updateBottomHUD();
+  });
+
+  socket.on('loot_pickup', (data) => {
+    addKillFeed(`Picked up: ${data.item.name}`);
+  });
+
+  socket.on('game_over', (data) => {
+    resultsWon = data.won;
+    showResults(data.won);
+  });
+
+  socket.on('chat_broadcast', (data) => {
+    addChatMessage(data.name, data.text);
+  });
+
+  socket.on('error', (data) => {
+    showError(data.message);
+  });
+}
+
+// ─── Menu Actions ─────────────────────────────────────────────────────────────
+function createRoom() {
+  const name = document.getElementById('name-input').value.trim() || 'Hero';
+  socket.emit('create_room', { playerName: name });
+}
+
+function joinRoom() {
+  const name = document.getElementById('name-input').value.trim() || 'Hero';
+  const code = document.getElementById('room-code-input').value.trim().toUpperCase();
+  if (!code) { showError('Enter a room code'); return; }
+  socket.emit('join_room', { roomCode: code, playerName: name });
+}
+
+// ─── Lobby ─────────────────────────────────────────────────────────────────────
+function showLobby(players) {
+  gameState = 'lobby';
+  menuScreen.style.display = 'none';
+  lobbyScreen.style.display = 'block';
+  resultsScreen.style.display = 'none';
+  document.getElementById('room-code-display').textContent = roomCode;
+  document.getElementById('start-btn').style.display = isHost ? 'inline-block' : 'none';
+  renderLobby(players);
+}
+
+function renderLobby(players) {
+  const list = document.getElementById('player-list');
+  list.innerHTML = '';
+  for (const p of players) {
+    const row = document.createElement('div');
+    row.className = 'player-row';
+    const clsColor = p.class === 'warrior' ? '#E74C3C' : p.class === 'mage' ? '#9B59B6' : '#27AE60';
+    const readyCls = p.ready ? 'ready-yes' : 'ready-no';
+    const readyText = p.ready ? 'READY' : 'NOT READY';
+    const isMe = p.id === myPlayerId;
+    const hostBadge = isHost && isMe ? ' 👑' : '';
+    row.innerHTML = `
+      <div class="name" style="${isMe ? 'color:#f39c12' : ''}">${p.name}${hostBadge}</div>
+      <div class="cls" style="background:${clsColor}">${p.class.toUpperCase()}</div>
+      <div class="ready-badge ${readyCls}">${readyText}</div>
+    `;
+    list.appendChild(row);
+  }
+  document.getElementById('lobby-player-count').textContent = `${players.length}/4`;
+}
+
+function selectClass(cls) {
+  currentClass = cls;
+  document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelector(`.class-btn.${cls}`).classList.add('selected');
+  socket.emit('select_class', { className: cls });
+}
+
+function toggleReady() {
+  socket.emit('ready_toggle');
+}
+
+function startDungeon() {
+  socket.emit('start_dungeon');
+}
+
+// ─── Game ──────────────────────────────────────────────────────────────────────
+function startGame() {
+  gameState = 'game';
+  menuScreen.style.display = 'none';
+  lobbyScreen.style.display = 'none';
+  resultsScreen.style.display = 'none';
+  gameScreen.style.display = 'block';
+  requestAnimationFrame(gameLoop);
+}
+
+function updateHUD(wave, playerCount) {
+  document.getElementById('wave-display').textContent = `Wave ${wave} / 5`;
+  document.getElementById('player-count-display').textContent = `👥 ${playerCount} players`;
+}
+
+function updateBottomHUD() {
+  const me = localPlayers[myPlayerId];
+  if (!me) return;
+  const hpPct = Math.max(0, me.hp / me.maxHp * 100);
+  document.getElementById('hp-bar-fill').style.width = hpPct + '%';
+  document.getElementById('hp-value').textContent = `${Math.round(me.hp)} / ${me.maxHp}`;
+  const xpPct = me.xpToLevel > 0 ? me.xp / me.xpToLevel * 100 : 0;
+  document.getElementById('xp-bar-fill').style.width = xpPct + '%';
+  document.getElementById('xp-value').textContent = `${me.xp} / ${me.xpToLevel}`;
+  document.getElementById('weapon-display').textContent = me.weaponName || 'Fists';
+  // Ability cooldown
+  const abBtn = document.getElementById('ability-btn');
+  const abl = { warrior: ['Shield Bash', 3000], mage: ['Fireball', 5000], archer: ['Power Shot', 4000] };
+  const [name, cd] = abl[me.class] || ['', 3000];
+  if (me.abilityCooldown > 0) {
+    abBtn.textContent = `K - ${name} (${Math.ceil(me.abilityCooldown/1000)}s)`;
+    abBtn.classList.remove('ready');
+  } else {
+    abBtn.textContent = `K - ${name}`;
+    abBtn.classList.add('ready');
+  }
+}
+
+// ─── Canvas Rendering ──────────────────────────────────────────────────────────
+const CLASS_COLORS = { warrior: '#E74C3C', mage: '#9B59B6', archer: '#27AE60' };
+const ENEMY_COLORS = { slime: '#2ECC71', goblin: '#8B4513', skeleton: '#BDC3C7', orc: '#1E8449', dragon: '#E74C3C' };
+
+function gameLoop() {
+  if (gameState !== 'game') return;
+  draw();
+  sendInput();
+  requestAnimationFrame(gameLoop);
+}
+
+function draw() {
+  // Background
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Grid pattern
+  ctx.strokeStyle = '#1f1f35';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < CANVAS_W; x += 48) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CANVAS_H); ctx.stroke(); }
+  for (let y = 0; y < CANVAS_H; y += 48) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_W, y); ctx.stroke(); }
+
+  // Floor
+  ctx.fillStyle = '#2d2d44';
+  ctx.fillRect(0, GROUND_Y, CANVAS_W, CANVAS_H - GROUND_Y);
+  ctx.strokeStyle = '#4a4a6a';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(CANVAS_W, GROUND_Y); ctx.stroke();
+
+  // Platforms
+  ctx.fillStyle = '#3d3d5c';
+  for (const py of PLATFORM_Y) {
+    ctx.fillRect(PLAT_LEFT, py, PLAT_RIGHT - PLAT_LEFT, 12);
+    ctx.strokeStyle = '#5a5a8a';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(PLAT_LEFT, py, PLAT_RIGHT - PLAT_LEFT, 12);
+  }
+
+  // Loot
+  for (const loot of localLoot) {
+    const pulse = Math.sin(Date.now() / 200) * 3;
+    ctx.fillStyle = '#f1c40f';
+    ctx.beginPath();
+    ctx.arc(loot.x, loot.y + pulse, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = '9px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(loot.item.name.split(' ')[0], loot.x, loot.y - 12);
+  }
+
+  // Enemies
+  for (const e of Object.values(localEnemies)) {
+    const color = ENEMY_COLORS[e.type] || '#888';
+    const w = 32 * (e.size || 1);
+    const h = 48 * (e.size || 1);
+    if (e.stunned > 0) ctx.globalAlpha = 0.5;
+    if (e.type === 'slime') {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(e.x + w/2, e.y + h, w/2, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = color;
+      ctx.fillRect(e.x, e.y, w, h);
+    }
+    // HP bar
+    const hpPct = e.hp / e.maxHp;
+    ctx.fillStyle = '#222';
+    ctx.fillRect(e.x, e.y - 10, w, 6);
+    ctx.fillStyle = '#e74c3c';
+    ctx.fillRect(e.x, e.y - 10, w * hpPct, 6);
+    if (e.stunned > 0) ctx.globalAlpha = 1;
+  }
+
+  // Projectiles
+  for (const proj of localProjectiles) {
+    if (proj.class === 'mage') {
+      ctx.fillStyle = '#9b59b6';
+      ctx.beginPath();
+      ctx.arc(proj.x, proj.y, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#e8d5ff';
+      ctx.beginPath();
+      ctx.arc(proj.x, proj.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // Arrow
+      ctx.fillStyle = '#27AE60';
+      ctx.save();
+      ctx.translate(proj.x, proj.y);
+      if (proj.vx < 0) ctx.scale(-1, 1);
+      ctx.beginPath();
+      ctx.moveTo(10, 0); ctx.lineTo(-6, -4); ctx.lineTo(-6, 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // Players
+  for (const p of Object.values(localPlayers)) {
+    const color = CLASS_COLORS[p.class] || '#fff';
+    const isMe = p.id === myPlayerId;
+    if (p.dead) {
+      ctx.globalAlpha = 0.4;
+      ctx.fillStyle = '#555';
+    } else {
+      ctx.globalAlpha = isMe ? 1 : 0.85;
+      ctx.fillStyle = color;
+    }
+    // Body
+    ctx.beginPath();
+    ctx.roundRect(p.x, p.y, 32, 48, 4);
+    ctx.fill();
+    // Head highlight for self
+    if (isMe) {
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // Name
+    ctx.fillStyle = isMe ? '#f39c12' : '#aaa';
+    ctx.font = 'bold 11px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(p.name, p.x + 16, p.y - 16);
+
+    // HP bar
+    const hpPct = Math.max(0, p.hp / p.maxHp);
+    ctx.fillStyle = '#222';
+    ctx.fillRect(p.x - 2, p.y - 8, 36, 5);
+    ctx.fillStyle = '#e74c3c';
+    ctx.fillRect(p.x - 2, p.y - 8, 36 * hpPct, 5);
+
+    // Level badge
+    ctx.fillStyle = '#f39c12';
+    ctx.font = '9px Arial';
+    ctx.fillText(`Lv${p.level}`, p.x + 16, p.y + 56);
+
+    // Dead overlay
+    if (p.dead) {
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(p.x, p.y, 32, 48);
+      ctx.fillStyle = '#c0392b';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('DEAD', p.x + 16, p.y + 28);
+    }
+
+    // Stunned
+    if (p.stunned > 0) {
+      ctx.fillStyle = '#f1c40f';
+      ctx.font = '10px Arial';
+      ctx.fillText('⭐', p.x + 16, p.y - 20);
+    }
+  }
+}
+
+function sendInput() {
+  const attack = keys['j'] || keys['z'];
+  const ability = keys['k'] || keys['x'];
+  const newAttack = attack && !lastAttackKey;
+  const newAbility = ability && !lastAbilityKey;
+  lastAttackKey = attack;
+  lastAbilityKey = ability;
+  inputState.attack = newAttack;
+  inputState.ability = newAbility;
+  if (socket && gameState === 'game') {
+    socket.emit('player_input', inputState);
+  }
+}
+
+// ─── Input Handling ────────────────────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
+  keys[k] = true;
+  updateInputState();
+});
+
+document.addEventListener('keyup', (e) => {
+  keys[e.key.toLowerCase()] = false;
+  updateInputState();
+});
+
+function updateInputState() {
+  inputState.left  = !!(keys['a'] || keys['arrowleft']);
+  inputState.right = !!(keys['d'] || keys['arrowright']);
+  inputState.jump  = !!(keys['w'] || keys['arrowup']);
+}
+
+// ─── Chat ──────────────────────────────────────────────────────────────────────
+function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || !socket) return;
+  socket.emit('chat_message', { text });
+  input.value = '';
+}
+
+function addChatMessage(name, text) {
+  const log = document.getElementById('chat-log');
+  const msg = document.createElement('div');
+  msg.className = 'chat-msg';
+  msg.innerHTML = `<span class="cname">${escapeHtml(name)}:</span> ${escapeHtml(text)}`;
+  log.appendChild(msg);
+  log.scrollTop = log.scrollHeight;
+  // Keep only last 20 messages
+  while (log.children.length > 20) log.removeChild(log.firstChild);
+}
+
+function addKillFeed(text) {
+  killFeed.unshift(text);
+  if (killFeed.length > 3) killFeed.pop();
+  const feed = document.getElementById('kill-feed');
+  feed.innerHTML = killFeed.map(t => `<div class="kill-entry">${escapeHtml(t)}</div>`).join('');
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── Results ───────────────────────────────────────────────────────────────────
+function showResults(won) {
+  gameState = 'results';
+  gameScreen.style.display = 'none';
+  resultsScreen.style.display = 'block';
+  resultsScreen.className = won ? 'victory' : 'defeat';
+  document.getElementById('results-title').textContent = won ? '🎉 VICTORY!' : '💀 DEFEAT';
+  const me = localPlayers[myPlayerId];
+  const stats = document.getElementById('results-stats');
+  stats.innerHTML = `
+    Level: ${me ? me.level : '?'}<br>
+    Wave Reached: ${won ? '5/5' : '?'}<br>
+    Enemies Defeated: ${killFeed.filter(t => t.includes('defeated')).length}
+  `;
+}
+
+function playAgain() {
+  // Recreate room — just go back to menu for now
+  exitGame();
+}
+
+function exitGame() {
+  gameState = 'menu';
+  menuScreen.style.display = 'block';
+  lobbyScreen.style.display = 'none';
+  gameScreen.style.display = 'none';
+  resultsScreen.style.display = 'none';
+  localPlayers = {};
+  localEnemies = {};
+  localProjectiles = [];
+  localLoot = [];
+  killFeed = [];
+  location.reload();
+}
+
+// ─── Utilities ─────────────────────────────────────────────────────────────────
+function showError(msg) {
+  const toast = document.getElementById('error-toast');
+  toast.textContent = msg;
+  toast.style.display = 'block';
+  setTimeout(() => { toast.style.display = 'none'; }, 3000);
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+connectSocket();
+</script>
+</body>
+</html>
